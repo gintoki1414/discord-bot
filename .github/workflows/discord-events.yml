@@ -94,7 +94,7 @@ jobs:
       # DISCORD_ROLE_ID_1: "123456789012345678"
       # DISCORD_ROLE_ID_2: "987654321098765432"
       # ===================================================
-      DISCORD_ROLE_ID_1: ""
+      DISCORD_ROLE_ID_1: "@R3"
       DISCORD_ROLE_ID_2: ""
 
     steps:
