@@ -32,7 +32,7 @@ on:
 
   # =======================================================
   # MANUAL TEST BUTTON
-  # GitHub -> Actions -> BNK Discord Event Reminders
+  # GitHub -> Actions -> KS Discord Event Reminders
   # -> Run workflow
   # =======================================================
   workflow_dispatch:
@@ -59,7 +59,7 @@ jobs:
       # DISCORD_WEBHOOK_URL
       # ===================================================
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-
+      ALLIANCE: ${{ secrets.ALLIANCE }}
       # ===================================================
       # BEAR CYCLE START DATES
       #
@@ -104,7 +104,7 @@ jobs:
           set -u
 
           echo "=========================================="
-          echo "BNK Discord Event Reminder"
+          echo "KS Discord Event Reminder"
           echo "=========================================="
           echo "Trigger: ${{ github.event_name }}"
           echo "UTC Time: $(date -u)"
@@ -319,7 +319,7 @@ jobs:
                 --arg role "$DISCORD_ROLE_ID" \
                 --arg image "$BEAR_IMAGE_URL" \
                 '{
-                  username: "BNK Mission Control",
+                  username: "KS Mission Control",
 
                   content: $ping,
 
@@ -336,10 +336,10 @@ jobs:
 
                   embeds: [
                     {
-                      title: "🚨 MISSION ALERT: BNK BEAR INBOUND 🚨",
+                      title: "🚨 MISSION ALERT: POT BEAR INBOUND 🚨",
 
                       description:
-                        "**Attention, Commanders!**\n\n🐻 **Bear Hunt 1 — BEAR TRAP BNK** will commence in **15 minutes**.\n\nPrepare for immediate deployment.",
+                        "**Attention, Commanders!**\n\n🐻 **Bear Hunt 1 — BEAR TRAP POT** will commence in **15 minutes**.",
 
                       color: 15158332,
 
@@ -359,31 +359,11 @@ jobs:
                           inline: true
                         },
                         {
-                          name: "⚔️ STATUS",
-                          value: "**Final Preparation Phase**",
-                          inline: false
-                        },
-                        {
-                          name: "🎯 PRIMARY OBJECTIVE",
-                          value: "Ready all formations and rally teams.",
-                          inline: false
-                        },
-                        {
-                          name: "✅ COMMANDER CHECKLIST",
-                          value: "• Get online\n• Check your formations\n• Activate required buffs\n• Verify your heroes\n• Prepare your rally teams\n• Stand by for deployment",
-                          inline: false
-                        },
-                        {
-                          name: "📡 MISSION ORDERS",
-                          value: "> Get online, check your formations and buffs, and stand by for the Bear Trap to open.",
+                          name: "✅ CHECKLIST",
+                          value: "• Get online\n• Check your formations\n• Activate required buffs\n• Verify your heroes",
                           inline: false
                         }
                       ],
-
-                      footer: {
-                        text: "Mission Control • Bear Ops Division"
-                      },
-
                       timestamp: (now | todate)
                     }
                   ]
@@ -427,7 +407,7 @@ jobs:
                 --arg role "$DISCORD_ROLE_ID" \
                 --arg image "$BEAR_IMAGE_URL" \
                 '{
-                  username: "BNK Mission Control",
+                  username: "KS Mission Control",
 
                   content: $ping,
 
@@ -444,10 +424,10 @@ jobs:
 
                   embeds: [
                     {
-                      title: "🚨 MISSION ALERT: BNK BEAR INBOUND 🚨",
+                      title: "🚨 MISSION ALERT: POT BEAR INBOUND 🚨",
 
                       description:
-                        "**Attention, Commanders!**\n\n🐻 **Bear Hunt 2 — BEAR TRAP BNK** will commence in **15 minutes**.\n\nPrepare for immediate deployment.",
+                        "**Attention, Commanders!**\n\n🐻 **Bear Hunt 2 — BEAR TRAP POT** will commence in **15 minutes**.",
 
                       color: 15158332,
 
@@ -458,7 +438,7 @@ jobs:
                       fields: [
                         {
                           name: "🕒 START TIME",
-                          value: "**19:00 UTC**",
+                          value: "**15:00 UTC**",
                           inline: true
                         },
                         {
@@ -467,30 +447,11 @@ jobs:
                           inline: true
                         },
                         {
-                          name: "⚔️ STATUS",
-                          value: "**Final Preparation Phase**",
-                          inline: false
-                        },
-                        {
-                          name: "🎯 PRIMARY OBJECTIVE",
-                          value: "Ready all formations and rally teams.",
-                          inline: false
-                        },
-                        {
-                          name: "✅ COMMANDER CHECKLIST",
-                          value: "• Get online\n• Check your formations\n• Activate required buffs\n• Verify your heroes\n• Prepare your rally teams\n• Stand by for deployment",
-                          inline: false
-                        },
-                        {
-                          name: "📡 MISSION ORDERS",
-                          value: "> Get online, check your formations and buffs, and stand by for the Bear Trap to open.",
+                          name: "✅ CHECKLIST",
+                          value: "• Get online\n• Check your formations\n• Activate required buffs\n• Verify your heroes",
                           inline: false
                         }
                       ],
-
-                      footer: {
-                        text: "Mission Control • Bear Ops Division"
-                      },
 
                       timestamp: (now | todate)
                     }
@@ -530,7 +491,7 @@ jobs:
               --arg ping "$ROLE_PING" \
               --arg role "$DISCORD_ROLE_ID" \
               '{
-                username: "BNK Mission Control",
+                username: "KS Mission Control",
 
                 content: $ping,
 
@@ -578,7 +539,7 @@ jobs:
                     ],
 
                     footer: {
-                      text: "Mission Control • BNK Operations"
+                      text: "Mission Control • KS Operations"
                     },
 
                     timestamp: (now | todate)
@@ -611,7 +572,7 @@ jobs:
               --arg ping "$ROLE_PING" \
               --arg role "$DISCORD_ROLE_ID" \
               '{
-                username: "BNK Mission Control",
+                username: "KS Mission Control",
 
                 content: $ping,
 
@@ -659,7 +620,7 @@ jobs:
                     ],
 
                     footer: {
-                      text: "Mission Control • BNK Operations"
+                      text: "Mission Control • KS Operations"
                     },
 
                     timestamp: (now | todate)
