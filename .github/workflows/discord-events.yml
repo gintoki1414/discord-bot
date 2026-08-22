@@ -1,188 +1,693 @@
-name: Discord Event Reminders
+name: BNK Discord Event Reminders
 
 on:
   schedule:
-    # Event 1 - 15:00 UTC, checked daily
-    - cron: "0 15 * * *"
 
-    # Event 2 - 19:00 UTC, checked daily
-    - cron: "0 19 * * *"
+    # ==================================================
+    # 🐻 BEAR HUNT 1
+    # Event starts: 15:00 UTC
+    # Reminder: 14:45 UTC
+    # Runs every day, script checks if it is a Bear day
+    # ==================================================
+    - cron: "45 14 * * *"
 
-    # Event 3 - every day at 23:50 UTC
+    # ==================================================
+    # 🐻 BEAR HUNT 2
+    # Event starts: 19:00 UTC
+    # Reminder: 18:45 UTC
+    # Runs every day, script checks if it is a Bear day
+    # ==================================================
+    - cron: "45 18 * * *"
+
+    # ==================================================
+    # EVENT 3
+    # Every day at 23:50 UTC
+    # ==================================================
     - cron: "50 23 * * *"
 
-    # Event 4 - every Sunday at 23:45 UTC
+    # ==================================================
+    # EVENT 4
+    # Every Sunday at 23:45 UTC
+    # 0 = Sunday
+    # ==================================================
     - cron: "45 23 * * 0"
 
-  # Manual testing
+
+  # ====================================================
+  # MANUAL TESTING
+  # GitHub -> Actions -> BNK Discord Event Reminders
+  # -> Run workflow
+  # ====================================================
   workflow_dispatch:
     inputs:
       event:
-        description: "Which event do you want to test?"
+        description: "Choose an event to test"
         required: true
         type: choice
         options:
-          - event1
-          - event2
+          - bear1
+          - bear2
           - event3
           - event4
 
 
 jobs:
-  send-reminder:
+  discord-reminder:
     runs-on: ubuntu-latest
 
     env:
+
+      # Discord webhook stored in:
+      # GitHub Settings -> Secrets and variables
+      # -> Actions -> Repository secrets
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
+
+      # ==================================================
+      # BEAR EVENT CYCLE
+      #
       # IMPORTANT:
-      # Set these to a date when each 2-day event actually occurs.
-      EVENT1_START_DATE: "2026-08-22"
-      EVENT2_START_DATE: "2026-08-22"
+      # These dates MUST be dates when the Bear event
+      # actually happens.
+      #
+      # Example:
+      # Aug 22 -> Bear
+      # Aug 23 -> No Bear
+      # Aug 24 -> Bear
+      # Aug 25 -> No Bear
+      # etc.
+      #
+      # If both Bear events happen on the same days,
+      # leave both dates the same.
+      # ==================================================
+
+      BEAR1_START_DATE: "2026-08-22"
+      BEAR2_START_DATE: "2026-08-22"
+
+
+      # ==================================================
+      # BEAR IMAGE
+      #
+      # This is the Bear image/emoji from the URL
+      # you provided.
+      # ==================================================
+
+      BEAR_IMAGE_URL: "https://cdn.discordapp.com/emojis/1375520846407270561.png"
+
+
+      # ==================================================
+      # OPTIONAL ROLE PING
+      #
+      # Leave empty for no ping:
+      #
+      # DISCORD_ROLE_ID: ""
+      #
+      # Or put your Discord role ID:
+      #
+      # DISCORD_ROLE_ID: "123456789012345678"
+      # ==================================================
+
+      DISCORD_ROLE_ID: ""
+
 
     steps:
-      - name: Send reminder
+
+      - name: Process Discord Event
         shell: bash
+
         run: |
+
+          # ==================================================
+          # BASIC VARIABLES
+          # ==================================================
+
           SCHEDULE="${{ github.event.schedule }}"
           MANUAL_EVENT="${{ inputs.event }}"
           IS_MANUAL="false"
 
-          # ---------------------------------------------
-          # Manual test
-          # ---------------------------------------------
+
+          echo "=========================================="
+          echo "BNK Discord Event Reminder"
+          echo "=========================================="
+          echo "Trigger: ${{ github.event_name }}"
+          echo "Schedule: $SCHEDULE"
+          echo "UTC Time: $(date -u)"
+          echo "=========================================="
+
+
+          # ==================================================
+          # MANUAL TEST MODE
+          # ==================================================
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+
             IS_MANUAL="true"
 
+            echo "Manual test selected: $MANUAL_EVENT"
+
             case "$MANUAL_EVENT" in
-              event1)
-                SCHEDULE="0 15 * * *"
+
+              bear1)
+                SCHEDULE="45 14 * * *"
                 ;;
-              event2)
-                SCHEDULE="0 19 * * *"
+
+              bear2)
+                SCHEDULE="45 18 * * *"
                 ;;
+
               event3)
                 SCHEDULE="50 23 * * *"
                 ;;
+
               event4)
                 SCHEDULE="45 23 * * 0"
                 ;;
+
+              *)
+                echo "Unknown manual event."
+                exit 1
+                ;;
+
             esac
+
           fi
 
 
-          # ---------------------------------------------
-          # Check if today is part of an every-2-days cycle
-          # ---------------------------------------------
+          # ==================================================
+          # EVERY 2 DAYS CHECK
+          # ==================================================
+          #
+          # This prevents the common cron problem where:
+          #
+          # */2 in day-of-month
+          #
+          # resets when the month changes.
+          #
+          # Instead we calculate the number of days since
+          # a known Bear event date.
+          # ==================================================
+
           every_two_days() {
+
             START_DATE="$1"
+
 
             # Manual tests always send
             if [ "$IS_MANUAL" = "true" ]; then
+
+              echo "Manual test - bypassing 2-day check."
+
               return 0
+
             fi
 
-            START_SECONDS=$(date -u -d "$START_DATE 00:00:00" +%s)
-            TODAY_SECONDS=$(date -u -d "$(date -u +%F) 00:00:00" +%s)
 
-            DAYS=$(( (TODAY_SECONDS - START_SECONDS) / 86400 ))
+            START_SECONDS=$(
+              date -u \
+              -d "$START_DATE 00:00:00" \
+              +%s
+            )
 
-            # Don't run before the start date
-            if [ "$DAYS" -lt 0 ]; then
+
+            TODAY_DATE=$(
+              date -u +%F
+            )
+
+
+            TODAY_SECONDS=$(
+              date -u \
+              -d "$TODAY_DATE 00:00:00" \
+              +%s
+            )
+
+
+            DAYS_DIFFERENCE=$(
+              (TODAY_SECONDS - START_SECONDS) / 86400
+            )
+
+
+            echo "Start date: $START_DATE"
+            echo "Today: $TODAY_DATE"
+            echo "Days difference: $DAYS_DIFFERENCE"
+
+
+            # Don't send before start date
+            if [ "$DAYS_DIFFERENCE" -lt 0 ]; then
+
+              echo "Event cycle has not started yet."
+
               return 1
+
             fi
 
-            # Send on day 0, 2, 4, 6, 8...
-            if [ $((DAYS % 2)) -eq 0 ]; then
+
+            # Day 0, 2, 4, 6, 8...
+            if [ $((DAYS_DIFFERENCE % 2)) -eq 0 ]; then
+
+              echo "Today IS a Bear event day."
+
               return 0
-            fi
 
-            return 1
+            else
+
+              echo "Today is NOT a Bear event day."
+
+              return 1
+
+            fi
           }
 
 
-          # ---------------------------------------------
-          # Send message to Discord
-          # ---------------------------------------------
-          send_discord() {
-            MESSAGE="$1"
+          # ==================================================
+          # DISCORD SEND FUNCTION
+          # ==================================================
 
-            jq -n \
-              --arg message "$MESSAGE" \
-              '{
-                username: "Event Reminder",
-                content: $message
-              }' |
+          send_discord() {
+
+            PAYLOAD="$1"
+
+
+            if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+
+              echo "ERROR: DISCORD_WEBHOOK_URL is missing."
+
+              exit 1
+
+            fi
+
+
             curl \
               --fail-with-body \
+              --silent \
+              --show-error \
               -H "Content-Type: application/json" \
-              --data-binary @- \
+              --data-binary "$PAYLOAD" \
               "$DISCORD_WEBHOOK_URL"
+
+
+            echo ""
+            echo "Discord message sent successfully."
           }
 
 
-          # ---------------------------------------------
-          # Event schedules
-          # ---------------------------------------------
-          case "$SCHEDULE" in
+          # ==================================================
+          # OPTIONAL DISCORD ROLE PING
+          # ==================================================
 
-            # EVENT 1
-            # Every 2 days at 15:00 UTC
-            "0 15 * * *")
+          get_ping() {
 
-              if every_two_days "$EVENT1_START_DATE"; then
-                send_discord "⏰ **EVENT 1**
-              
-              🕒 **15:00 UTC**
-              📅 Every 2 days
-              
-              The event is starting now!"
-                            else
-                              echo "Event 1 does not run today."
-                            fi
-                            ;;
+            if [ -n "$DISCORD_ROLE_ID" ]; then
+
+              echo "<@&$DISCORD_ROLE_ID>"
+
+            else
+
+              echo ""
+
+            fi
+          }
 
 
-            # EVENT 2
-            # Every 2 days at 19:00 UTC
-            "0 19 * * *")
+          # ==================================================
+          # 🐻 BEAR HUNT 1
+          #
+          # Actual event: 15:00 UTC
+          # Reminder:     14:45 UTC
+          # Every 2 days
+          # ==================================================
 
-              if every_two_days "$EVENT2_START_DATE"; then
-                send_discord "⏰ **EVENT 2**
-                
-                🕖 **19:00 UTC**
-                📅 Every 2 days
-                
-                The event is starting now!"
-                              else
-                                echo "Event 2 does not run today."
-                              fi
-                              ;;
+          if [ "$SCHEDULE" = "45 14 * * *" ]; then
+
+            echo "Processing Bear Hunt 1..."
 
 
-            # EVENT 3
-            # Every day at 23:50 UTC
-            "50 23 * * *")
+            if every_two_days "$BEAR1_START_DATE"; then
 
-              send_discord "⏰ **EVENT 3**
-              
-              🕚 **23:50 UTC**
-              📅 Every day
-              
-              The event is starting now!"
-                            ;;
+              PING=$(get_ping)
 
 
-            # EVENT 4
-            # Every Sunday at 23:45 UTC
-            "45 23 * * 0")
+              PAYLOAD=$(jq -n \
+                --arg ping "$PING" \
+                --arg image "$BEAR_IMAGE_URL" \
+                '{
+                  username: "BNK Mission Control",
 
-              send_discord "⏰ **EVENT 4**
+                  content: $ping,
 
-              🕚 **23:45 UTC**
-              📅 Every Sunday
-              
-              The event is starting now!"
-                            ;;
+                  allowed_mentions: {
+                    parse: [],
+                    roles: (
+                      if $ping == ""
+                      then []
+                      else [
+                        ($ping
+                          | gsub("<@&"; "")
+                          | gsub(">"; "")
+                        )
+                      ]
+                      end
+                    )
+                  },
 
-          esac
+                  embeds: [
+                    {
+                      title: "🚨 MISSION ALERT: BNK BEAR INBOUND 🚨",
+
+                      description:
+                        "**Attention, Commanders!**\n\n🐻 **Bear Hunt 1 — BEAR TRAP BNK** will commence in **15 minutes**.\n\nPrepare for immediate deployment.",
+
+                      color: 15158332,
+
+                      thumbnail: {
+                        url: $image
+                      },
+
+                      fields: [
+
+                        {
+                          name: "🕒 START TIME",
+                          value: "**15:00 UTC**",
+                          inline: true
+                        },
+
+                        {
+                          name: "⏳ COUNTDOWN",
+                          value: "**15 Minutes**",
+                          inline: true
+                        },
+
+                        {
+                          name: "⚔️ STATUS",
+                          value: "**Final Preparation Phase**",
+                          inline: false
+                        },
+
+                        {
+                          name: "🎯 PRIMARY OBJECTIVE",
+                          value: "Ready all formations and rally teams.",
+                          inline: false
+                        },
+
+                        {
+                          name: "✅ COMMANDER CHECKLIST",
+                          value:
+                            "• Get online\n• Check your formations\n• Activate required buffs\n• Verify your heroes\n• Prepare your rally teams\n• Stand by for deployment",
+                          inline: false
+                        },
+
+                        {
+                          name: "📡 MISSION ORDERS",
+                          value:
+                            "> All commanders report for final preparation. Be ready when the Bear Trap opens.",
+                          inline: false
+                        }
+
+                      ],
+
+                      footer: {
+                        text: "Mission Control • Bear Ops Division"
+                      },
+
+                      timestamp: (
+                        now
+                        | todate
+                      )
+                    }
+                  ]
+                }')
+
+
+              send_discord "$PAYLOAD"
+
+            else
+
+              echo "Bear Hunt 1 does not occur today."
+
+            fi
+
+
+            exit 0
+
+          fi
+
+
+          # ==================================================
+          # 🐻 BEAR HUNT 2
+          #
+          # Actual event: 19:00 UTC
+          # Reminder:     18:45 UTC
+          # Every 2 days
+          # ==================================================
+
+          if [ "$SCHEDULE" = "45 18 * * *" ]; then
+
+            echo "Processing Bear Hunt 2..."
+
+
+            if every_two_days "$BEAR2_START_DATE"; then
+
+              PING=$(get_ping)
+
+
+              PAYLOAD=$(jq -n \
+                --arg ping "$PING" \
+                --arg image "$BEAR_IMAGE_URL" \
+                '{
+                  username: "BNK Mission Control",
+
+                  content: $ping,
+
+                  allowed_mentions: {
+                    parse: [],
+                    roles: (
+                      if $ping == ""
+                      then []
+                      else [
+                        ($ping
+                          | gsub("<@&"; "")
+                          | gsub(">"; "")
+                        )
+                      ]
+                      end
+                    )
+                  },
+
+                  embeds: [
+                    {
+                      title: "🚨 MISSION ALERT: BNK BEAR INBOUND 🚨",
+
+                      description:
+                        "**Attention, Commanders!**\n\n🐻 **Bear Hunt 2 — BEAR TRAP BNK** will commence in **15 minutes**.\n\nPrepare for immediate deployment.",
+
+                      color: 15158332,
+
+                      thumbnail: {
+                        url: $image
+                      },
+
+                      fields: [
+
+                        {
+                          name: "🕒 START TIME",
+                          value: "**19:00 UTC**",
+                          inline: true
+                        },
+
+                        {
+                          name: "⏳ COUNTDOWN",
+                          value: "**15 Minutes**",
+                          inline: true
+                        },
+
+                        {
+                          name: "⚔️ STATUS",
+                          value: "**Final Preparation Phase**",
+                          inline: false
+                        },
+
+                        {
+                          name: "🎯 PRIMARY OBJECTIVE",
+                          value: "Ready all formations and rally teams.",
+                          inline: false
+                        },
+
+                        {
+                          name: "✅ COMMANDER CHECKLIST",
+                          value:
+                            "• Get online\n• Check your formations\n• Activate required buffs\n• Verify your heroes\n• Prepare your rally teams\n• Stand by for deployment",
+                          inline: false
+                        },
+
+                        {
+                          name: "📡 MISSION ORDERS",
+                          value:
+                            "> All commanders report for final preparation. Be ready when the Bear Trap opens.",
+                          inline: false
+                        }
+
+                      ],
+
+                      footer: {
+                        text: "Mission Control • Bear Ops Division"
+                      },
+
+                      timestamp: (
+                        now
+                        | todate
+                      )
+                    }
+                  ]
+                }')
+
+
+              send_discord "$PAYLOAD"
+
+            else
+
+              echo "Bear Hunt 2 does not occur today."
+
+            fi
+
+
+            exit 0
+
+          fi
+
+
+          # ==================================================
+          # 📅 EVENT 3
+          #
+          # Every day
+          # 23:50 UTC
+          # ==================================================
+
+          if [ "$SCHEDULE" = "50 23 * * *" ]; then
+
+            echo "Processing Event 3..."
+
+
+            PAYLOAD=$(jq -n '
+              {
+                username: "BNK Mission Control",
+
+                embeds: [
+                  {
+                    title: "📢 DAILY EVENT ALERT",
+
+                    description:
+                      "**Attention, Commanders!**\n\nThe daily event is now active.",
+
+                    color: 3447003,
+
+                    fields: [
+
+                      {
+                        name: "🕒 TIME",
+                        value: "**23:50 UTC**",
+                        inline: true
+                      },
+
+                      {
+                        name: "📅 SCHEDULE",
+                        value: "**Every Day**",
+                        inline: true
+                      },
+
+                      {
+                        name: "⚔️ STATUS",
+                        value: "**Event Active**",
+                        inline: false
+                      }
+
+                    ],
+
+                    footer: {
+                      text: "Mission Control • BNK Operations"
+                    },
+
+                    timestamp: (
+                      now
+                      | todate
+                    )
+                  }
+                ]
+              }
+            ')
+
+
+            send_discord "$PAYLOAD"
+
+            exit 0
+
+          fi
+
+
+          # ==================================================
+          # 📅 EVENT 4
+          #
+          # Every Sunday
+          # 23:45 UTC
+          # ==================================================
+
+          if [ "$SCHEDULE" = "45 23 * * 0" ]; then
+
+            echo "Processing Event 4..."
+
+
+            PAYLOAD=$(jq -n '
+              {
+                username: "BNK Mission Control",
+
+                embeds: [
+                  {
+                    title: "🚨 SUNDAY EVENT ALERT",
+
+                    description:
+                      "**Attention, Commanders!**\n\nThe weekly Sunday event is now active.",
+
+                    color: 10181046,
+
+                    fields: [
+
+                      {
+                        name: "🕒 TIME",
+                        value: "**23:45 UTC**",
+                        inline: true
+                      },
+
+                      {
+                        name: "📅 SCHEDULE",
+                        value: "**Every Sunday**",
+                        inline: true
+                      },
+
+                      {
+                        name: "⚔️ STATUS",
+                        value: "**Event Active**",
+                        inline: false
+                      }
+
+                    ],
+
+                    footer: {
+                      text: "Mission Control • BNK Operations"
+                    },
+
+                    timestamp: (
+                      now
+                      | todate
+                    )
+                  }
+                ]
+              }
+            ')
+
+
+            send_discord "$PAYLOAD"
+
+            exit 0
+
+          fi
+
+
+          echo "No matching event schedule found."
