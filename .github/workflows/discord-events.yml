@@ -94,8 +94,8 @@ jobs:
       # DISCORD_ROLE_ID_1: "123456789012345678"
       # DISCORD_ROLE_ID_2: "987654321098765432"
       # ===================================================
-      DISCORD_ROLE_ID_1: "1540798567361286246"
-      DISCORD_ROLE_ID_2: ""
+      DISCORD_ROLE_ID_1: ${{ secrets.ROLE_ID_1 }}
+      DISCORD_ROLE_ID_2: ${{ secrets.ROLE_ID_2 }}
 
     steps:
 
