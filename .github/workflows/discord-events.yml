@@ -286,14 +286,35 @@ jobs:
 
           # =================================================
           # BUILD TWO ROLE PINGS
+          #
+          # GitHub secrets may contain either:
+          #   123456789012345678
+          # or:
+          #   <@&123456789012345678>
+          #
+          # Normalize both formats to raw numeric role IDs.
           # =================================================
 
+          DISCORD_ROLE_ID_1=$(printf '%s' "$DISCORD_ROLE_ID_1" | tr -d '[:space:]')
+          DISCORD_ROLE_ID_2=$(printf '%s' "$DISCORD_ROLE_ID_2" | tr -d '[:space:]')
+
+          DISCORD_ROLE_ID_1=$(printf '%s' "$DISCORD_ROLE_ID_1" | sed -E 's/^<@&([0-9]+)>$/\1/')
+          DISCORD_ROLE_ID_2=$(printf '%s' "$DISCORD_ROLE_ID_2" | sed -E 's/^<@&([0-9]+)>$/\1/')
+
+          if [ -n "$DISCORD_ROLE_ID_1" ] && [[ ! "$DISCORD_ROLE_ID_1" =~ ^[0-9]+$ ]]; then
+            echo "ERROR: ROLE_ID_1 must contain only a Discord role ID number."
+            exit 1
+          fi
+
+          if [ -n "$DISCORD_ROLE_ID_2" ] && [[ ! "$DISCORD_ROLE_ID_2" =~ ^[0-9]+$ ]]; then
+            echo "ERROR: ROLE_ID_2 must contain only a Discord role ID number."
+            exit 1
+          fi
+
           ROLE_PING=""
-          ROLE_IDS_JSON="[]"
 
           if [ -n "$DISCORD_ROLE_ID_1" ]; then
             ROLE_PING="<@&$DISCORD_ROLE_ID_1>"
-            ROLE_IDS_JSON=$(jq -n --arg r1 "$DISCORD_ROLE_ID_1" '[ $r1 ]')
           fi
 
           if [ -n "$DISCORD_ROLE_ID_2" ]; then
@@ -302,15 +323,9 @@ jobs:
             else
               ROLE_PING="<@&$DISCORD_ROLE_ID_2>"
             fi
-
-            ROLE_IDS_JSON=$(jq -n \
-              --argjson roles "$ROLE_IDS_JSON" \
-              --arg r2 "$DISCORD_ROLE_ID_2" \
-              '$roles + [$r2]')
           fi
 
-          echo "Role ping text: $ROLE_PING"
-          echo "Allowed role IDs: $ROLE_IDS_JSON"
+          echo "Configured role mentions: $([ -n "$DISCORD_ROLE_ID_1" ] && echo -n 1 || echo -n 0)$([ -n "$DISCORD_ROLE_ID_2" ] && echo -n '+1' || true)"
 
 
           # =================================================
@@ -332,16 +347,14 @@ jobs:
 
               PAYLOAD=$(jq -n \
                 --arg ping "$ROLE_PING" \
-                --argjson roles "$ROLE_IDS_JSON" \
-                --arg image "$BEAR_IMAGE_URL" \
+                 --arg image "$BEAR_IMAGE_URL" \
                 '{
                   username: "KS Mission Control",
 
                   content: $ping,
 
                   allowed_mentions: {
-                    parse: [],
-                    roles: $roles
+                    parse: ["roles"]
                   },
 
                   embeds: [
@@ -360,7 +373,7 @@ jobs:
                       fields: [
                         {
                           name: "🕒 START TIME",
-                          value: "**19:00 UTC**",
+                          value: "**15:00 UTC**",
                           inline: true
                         },
                         {
@@ -414,16 +427,14 @@ jobs:
 
               PAYLOAD=$(jq -n \
                 --arg ping "$ROLE_PING" \
-                --argjson roles "$ROLE_IDS_JSON" \
-                --arg image "$BEAR_IMAGE_URL" \
+                 --arg image "$BEAR_IMAGE_URL" \
                 '{
                   username: "KS Mission Control",
 
                   content: $ping,
 
                   allowed_mentions: {
-                    parse: [],
-                    roles: $roles
+                    parse: ["roles"]
                   },
 
                   embeds: [
@@ -493,16 +504,14 @@ jobs:
 
             PAYLOAD=$(jq -n \
               --arg ping "$ROLE_PING" \
-              --argjson roles "$ROLE_IDS_JSON" \
               '{
                 username: "KS Mission Control",
 
                 content: $ping,
 
                 allowed_mentions: {
-                  parse: [],
-                  roles: $roles
-                },
+                    parse: ["roles"]
+                  },
 
                 embeds: [
                   {
@@ -568,16 +577,14 @@ jobs:
 
             PAYLOAD=$(jq -n \
               --arg ping "$ROLE_PING" \
-              --argjson roles "$ROLE_IDS_JSON" \
               '{
                 username: "KS Mission Control",
 
                 content: $ping,
 
                 allowed_mentions: {
-                  parse: [],
-                  roles: $roles
-                },
+                    parse: ["roles"]
+                  },
 
                 embeds: [
                   {
