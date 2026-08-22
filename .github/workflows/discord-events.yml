@@ -1,0 +1,188 @@
+name: Discord Event Reminders
+
+on:
+  schedule:
+    # Event 1 - 15:00 UTC, checked daily
+    - cron: "0 15 * * *"
+
+    # Event 2 - 19:00 UTC, checked daily
+    - cron: "0 19 * * *"
+
+    # Event 3 - every day at 23:50 UTC
+    - cron: "50 23 * * *"
+
+    # Event 4 - every Sunday at 23:45 UTC
+    - cron: "45 23 * * 0"
+
+  # Manual testing
+  workflow_dispatch:
+    inputs:
+      event:
+        description: "Which event do you want to test?"
+        required: true
+        type: choice
+        options:
+          - event1
+          - event2
+          - event3
+          - event4
+
+
+jobs:
+  send-reminder:
+    runs-on: ubuntu-latest
+
+    env:
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+      # IMPORTANT:
+      # Set these to a date when each 2-day event actually occurs.
+      EVENT1_START_DATE: "2026-08-22"
+      EVENT2_START_DATE: "2026-08-22"
+
+    steps:
+      - name: Send reminder
+        shell: bash
+        run: |
+          SCHEDULE="${{ github.event.schedule }}"
+          MANUAL_EVENT="${{ inputs.event }}"
+          IS_MANUAL="false"
+
+          # ---------------------------------------------
+          # Manual test
+          # ---------------------------------------------
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            IS_MANUAL="true"
+
+            case "$MANUAL_EVENT" in
+              event1)
+                SCHEDULE="0 15 * * *"
+                ;;
+              event2)
+                SCHEDULE="0 19 * * *"
+                ;;
+              event3)
+                SCHEDULE="50 23 * * *"
+                ;;
+              event4)
+                SCHEDULE="45 23 * * 0"
+                ;;
+            esac
+          fi
+
+
+          # ---------------------------------------------
+          # Check if today is part of an every-2-days cycle
+          # ---------------------------------------------
+          every_two_days() {
+            START_DATE="$1"
+
+            # Manual tests always send
+            if [ "$IS_MANUAL" = "true" ]; then
+              return 0
+            fi
+
+            START_SECONDS=$(date -u -d "$START_DATE 00:00:00" +%s)
+            TODAY_SECONDS=$(date -u -d "$(date -u +%F) 00:00:00" +%s)
+
+            DAYS=$(( (TODAY_SECONDS - START_SECONDS) / 86400 ))
+
+            # Don't run before the start date
+            if [ "$DAYS" -lt 0 ]; then
+              return 1
+            fi
+
+            # Send on day 0, 2, 4, 6, 8...
+            if [ $((DAYS % 2)) -eq 0 ]; then
+              return 0
+            fi
+
+            return 1
+          }
+
+
+          # ---------------------------------------------
+          # Send message to Discord
+          # ---------------------------------------------
+          send_discord() {
+            MESSAGE="$1"
+
+            jq -n \
+              --arg message "$MESSAGE" \
+              '{
+                username: "Event Reminder",
+                content: $message
+              }' |
+            curl \
+              --fail-with-body \
+              -H "Content-Type: application/json" \
+              --data-binary @- \
+              "$DISCORD_WEBHOOK_URL"
+          }
+
+
+          # ---------------------------------------------
+          # Event schedules
+          # ---------------------------------------------
+          case "$SCHEDULE" in
+
+            # EVENT 1
+            # Every 2 days at 15:00 UTC
+            "0 15 * * *")
+
+              if every_two_days "$EVENT1_START_DATE"; then
+                send_discord "⏰ **EVENT 1**
+
+🕒 **15:00 UTC**
+📅 Every 2 days
+
+The event is starting now!"
+              else
+                echo "Event 1 does not run today."
+              fi
+              ;;
+
+
+            # EVENT 2
+            # Every 2 days at 19:00 UTC
+            "0 19 * * *")
+
+              if every_two_days "$EVENT2_START_DATE"; then
+                send_discord "⏰ **EVENT 2**
+
+🕖 **19:00 UTC**
+📅 Every 2 days
+
+The event is starting now!"
+              else
+                echo "Event 2 does not run today."
+              fi
+              ;;
+
+
+            # EVENT 3
+            # Every day at 23:50 UTC
+            "50 23 * * *")
+
+              send_discord "⏰ **EVENT 3**
+
+🕚 **23:50 UTC**
+📅 Every day
+
+The event is starting now!"
+              ;;
+
+
+            # EVENT 4
+            # Every Sunday at 23:45 UTC
+            "45 23 * * 0")
+
+              send_discord "⏰ **EVENT 4**
+
+🕚 **23:45 UTC**
+📅 Every Sunday
+
+The event is starting now!"
+              ;;
+
+          esac
