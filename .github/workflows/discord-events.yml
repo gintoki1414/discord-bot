@@ -19,14 +19,16 @@ on:
     - cron: "45 18 * * *"
 
     # =====================================================
-    # EVENT 3
+    # DAILY RESET / ARENA REMINDER
     # Every day at 23:50 UTC
+    # Daily reset is at 00:00 UTC
     # =====================================================
     - cron: "50 23 * * *"
 
     # =====================================================
-    # EVENT 4
+    # WEEKLY RESET REMINDER
     # Every Sunday at 23:45 UTC
+    # Weekly reset is at 00:00 UTC Monday
     # =====================================================
     - cron: "45 23 * * 0"
 
@@ -490,15 +492,16 @@ jobs:
 
 
           # =================================================
-          # 📅 EVENT 3
+          # 🏟️ DAILY RESET / ARENA REMINDER
           #
-          # Every day at 23:50 UTC
+          # Reminder: 23:50 UTC
+          # Reset:    00:00 UTC daily
           # =================================================
 
           if [ "$SCHEDULE" = "50 23 * * *" ]; then
 
             echo "------------------------------------------"
-            echo "Processing Event 3"
+            echo "Processing Daily Reset / Arena Reminder"
             echo "------------------------------------------"
 
 
@@ -515,38 +518,38 @@ jobs:
 
                 embeds: [
                   {
-                    title: "📢 DAILY EVENT ALERT",
+                    title: "🏟️ ARENA RESET REMINDER",
 
                     description:
-                      "**Attention, Commanders!**\n\nThe daily event is starting now.",
+                      "**Attention, Commanders!**\n\nThe **Daily Reset** is in **10 minutes**. Use any remaining **Arena attempts** before reset!",
 
                     color: 3447003,
 
                     fields: [
                       {
-                        name: "🕒 TIME",
+                        name: "🕒 REMINDER TIME",
                         value: "**23:50 UTC**",
                         inline: true
                       },
                       {
-                        name: "📅 SCHEDULE",
-                        value: "**Every Day**",
+                        name: "🔄 RESET TIME",
+                        value: "**00:00 UTC • Every Day**",
                         inline: true
                       },
                       {
-                        name: "⚔️ STATUS",
-                        value: "**Event Active**",
+                        name: "⏳ COUNTDOWN",
+                        value: "**10 Minutes Until Daily Reset**",
                         inline: false
                       },
                       {
-                        name: "📡 ORDERS",
-                        value: "> Report in and prepare for the event.",
+                        name: "✅ ARENA CHECKLIST",
+                        value: "> Use your remaining Arena attempts, claim available rewards, and finish any last daily tasks before reset.",
                         inline: false
                       }
                     ],
 
                     footer: {
-                      text: "Mission Control • KS Operations"
+                      text: "Mission Control • POT Operations"
                     },
 
                     timestamp: (now | todate)
@@ -563,15 +566,16 @@ jobs:
 
 
           # =================================================
-          # 📅 EVENT 4
+          # 🔄 WEEKLY RESET REMINDER
           #
-          # Every Sunday at 23:45 UTC
+          # Reminder: 23:45 UTC Sunday
+          # Reset:    00:00 UTC Monday
           # =================================================
 
           if [ "$SCHEDULE" = "45 23 * * 0" ]; then
 
             echo "------------------------------------------"
-            echo "Processing Event 4"
+            echo "Processing Weekly Reset Reminder"
             echo "------------------------------------------"
 
 
@@ -588,38 +592,38 @@ jobs:
 
                 embeds: [
                   {
-                    title: "🚨 SUNDAY EVENT ALERT",
+                    title: "🚨 WEEKLY RESET INBOUND",
 
                     description:
-                      "**Attention, Commanders!**\n\nThe weekly Sunday event is starting now.",
+                      "**Attention, Commanders!**\n\nThe **Weekly Reset** is in **15 minutes**. Finish your weekly tasks and claim any remaining rewards before reset.",
 
                     color: 10181046,
 
                     fields: [
                       {
-                        name: "🕒 TIME",
+                        name: "🕒 REMINDER TIME",
                         value: "**23:45 UTC**",
                         inline: true
                       },
                       {
-                        name: "📅 SCHEDULE",
-                        value: "**Every Sunday**",
+                        name: "🔄 RESET TIME",
+                        value: "**00:00 UTC Monday • Weekly**",
                         inline: true
                       },
                       {
-                        name: "⚔️ STATUS",
-                        value: "**Event Active**",
+                        name: "⏳ COUNTDOWN",
+                        value: "**15 Minutes Until Weekly Reset**",
                         inline: false
                       },
                       {
-                        name: "📡 ORDERS",
-                        value: "> Report in and prepare for the weekly operation.",
+                        name: "✅ FINAL CHECK",
+                        value: "> Finish weekly objectives, spend any expiring attempts, and claim outstanding rewards before reset.",
                         inline: false
                       }
                     ],
 
                     footer: {
-                      text: "Mission Control • KS Operations"
+                      text: "Mission Control • POT Operations"
                     },
 
                     timestamp: (now | todate)
