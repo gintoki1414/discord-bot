@@ -132,15 +132,15 @@ jobs:
 
               if every_two_days "$EVENT1_START_DATE"; then
                 send_discord "⏰ **EVENT 1**
-
-🕒 **15:00 UTC**
-📅 Every 2 days
-
-The event is starting now!"
-              else
-                echo "Event 1 does not run today."
-              fi
-              ;;
+              
+              🕒 **15:00 UTC**
+              📅 Every 2 days
+              
+              The event is starting now!"
+                            else
+                              echo "Event 1 does not run today."
+                            fi
+                            ;;
 
 
             # EVENT 2
@@ -149,15 +149,15 @@ The event is starting now!"
 
               if every_two_days "$EVENT2_START_DATE"; then
                 send_discord "⏰ **EVENT 2**
-
-🕖 **19:00 UTC**
-📅 Every 2 days
-
-The event is starting now!"
-              else
-                echo "Event 2 does not run today."
-              fi
-              ;;
+                
+                🕖 **19:00 UTC**
+                📅 Every 2 days
+                
+                The event is starting now!"
+                              else
+                                echo "Event 2 does not run today."
+                              fi
+                              ;;
 
 
             # EVENT 3
@@ -165,12 +165,12 @@ The event is starting now!"
             "50 23 * * *")
 
               send_discord "⏰ **EVENT 3**
-
-🕚 **23:50 UTC**
-📅 Every day
-
-The event is starting now!"
-              ;;
+              
+              🕚 **23:50 UTC**
+              📅 Every day
+              
+              The event is starting now!"
+                            ;;
 
 
             # EVENT 4
@@ -179,10 +179,10 @@ The event is starting now!"
 
               send_discord "⏰ **EVENT 4**
 
-🕚 **23:45 UTC**
-📅 Every Sunday
-
-The event is starting now!"
-              ;;
+              🕚 **23:45 UTC**
+              📅 Every Sunday
+              
+              The event is starting now!"
+                            ;;
 
           esac
