@@ -605,7 +605,7 @@ jobs:
                         name: "⏳ COUNTDOWN",
                         value: "**15 Minutes Until Weekly Reset**",
                         inline: false
-                      },
+                      }
                     ],
                     timestamp: (now | todate)
                   }
