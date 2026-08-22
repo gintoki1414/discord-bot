@@ -351,7 +351,7 @@ jobs:
                 --arg ping "$ROLE_PING" \
                  --arg image "$BEAR_IMAGE_URL" \
                 '{
-                  username: "KS Mission Control",
+                  username: "POT",
 
                   content: $ping,
 
@@ -431,7 +431,7 @@ jobs:
                 --arg ping "$ROLE_PING" \
                  --arg image "$BEAR_IMAGE_URL" \
                 '{
-                  username: "KS Mission Control",
+                  username: "POT",
 
                   content: $ping,
 
@@ -508,7 +508,7 @@ jobs:
             PAYLOAD=$(jq -n \
               --arg ping "$ROLE_PING" \
               '{
-                username: "KS Mission Control",
+                username: "POT",
 
                 content: $ping,
 
@@ -573,7 +573,7 @@ jobs:
             PAYLOAD=$(jq -n \
               --arg ping "$ROLE_PING" \
               '{
-                username: "KS Mission Control",
+                username: "POT",
 
                 content: $ping,
 
