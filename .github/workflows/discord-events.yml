@@ -540,17 +540,8 @@ jobs:
                         name: "⏳ COUNTDOWN",
                         value: "**10 Minutes Until Daily Reset**",
                         inline: false
-                      },
-                      {
-                        name: "✅ ARENA CHECKLIST",
-                        value: "> Use your remaining Arena attempts, claim available rewards, and finish any last daily tasks before reset.",
-                        inline: false
                       }
                     ],
-
-                    footer: {
-                      text: "Mission Control • POT Operations"
-                    },
 
                     timestamp: (now | todate)
                   }
@@ -615,17 +606,7 @@ jobs:
                         value: "**15 Minutes Until Weekly Reset**",
                         inline: false
                       },
-                      {
-                        name: "✅ FINAL CHECK",
-                        value: "> Finish weekly objectives, spend any expiring attempts, and claim outstanding rewards before reset.",
-                        inline: false
-                      }
                     ],
-
-                    footer: {
-                      text: "Mission Control • POT Operations"
-                    },
-
                     timestamp: (now | todate)
                   }
                 ]
