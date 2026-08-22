@@ -1,4 +1,4 @@
-name: KS Discord Event Reminders
+name: POT Discord Event Reminders
 
 on:
   schedule:
@@ -85,15 +85,17 @@ jobs:
       BEAR_IMAGE_URL: "https://cdn.discordapp.com/emojis/1375520846407270561.png?size=256&quality=lossless"
 
       # ===================================================
-      # OPTIONAL DISCORD ROLE PING
+      # DISCORD ROLE PINGS (2 ROLES)
       #
-      # Leave blank for no ping:
-      # DISCORD_ROLE_ID: ""
+      # Put the two Discord role IDs below.
+      # Leave either one blank if you do not want that role pinged.
       #
       # Example:
-      # DISCORD_ROLE_ID: "123456789012345678"
+      # DISCORD_ROLE_ID_1: "123456789012345678"
+      # DISCORD_ROLE_ID_2: "987654321098765432"
       # ===================================================
-      DISCORD_ROLE_ID: ""
+      DISCORD_ROLE_ID_1: ""
+      DISCORD_ROLE_ID_2: ""
 
     steps:
 
@@ -283,18 +285,32 @@ jobs:
 
 
           # =================================================
-          # BUILD OPTIONAL ROLE PING
+          # BUILD TWO ROLE PINGS
           # =================================================
 
-          if [ -n "$DISCORD_ROLE_ID" ]; then
+          ROLE_PING=""
+          ROLE_IDS_JSON="[]"
 
-            ROLE_PING="<@&$DISCORD_ROLE_ID>"
-
-          else
-
-            ROLE_PING=""
-
+          if [ -n "$DISCORD_ROLE_ID_1" ]; then
+            ROLE_PING="<@&$DISCORD_ROLE_ID_1>"
+            ROLE_IDS_JSON=$(jq -n --arg r1 "$DISCORD_ROLE_ID_1" '[ $r1 ]')
           fi
+
+          if [ -n "$DISCORD_ROLE_ID_2" ]; then
+            if [ -n "$ROLE_PING" ]; then
+              ROLE_PING="$ROLE_PING <@&$DISCORD_ROLE_ID_2>"
+            else
+              ROLE_PING="<@&$DISCORD_ROLE_ID_2>"
+            fi
+
+            ROLE_IDS_JSON=$(jq -n \
+              --argjson roles "$ROLE_IDS_JSON" \
+              --arg r2 "$DISCORD_ROLE_ID_2" \
+              '$roles + [$r2]')
+          fi
+
+          echo "Role ping text: $ROLE_PING"
+          echo "Allowed role IDs: $ROLE_IDS_JSON"
 
 
           # =================================================
@@ -316,7 +332,7 @@ jobs:
 
               PAYLOAD=$(jq -n \
                 --arg ping "$ROLE_PING" \
-                --arg role "$DISCORD_ROLE_ID" \
+                --argjson roles "$ROLE_IDS_JSON" \
                 --arg image "$BEAR_IMAGE_URL" \
                 '{
                   username: "KS Mission Control",
@@ -325,13 +341,7 @@ jobs:
 
                   allowed_mentions: {
                     parse: [],
-                    roles:
-                      (
-                        if $role == ""
-                        then []
-                        else [$role]
-                        end
-                      )
+                    roles: $roles
                   },
 
                   embeds: [
@@ -350,7 +360,7 @@ jobs:
                       fields: [
                         {
                           name: "🕒 START TIME",
-                          value: "**15:00 UTC**",
+                          value: "**19:00 UTC**",
                           inline: true
                         },
                         {
@@ -404,7 +414,7 @@ jobs:
 
               PAYLOAD=$(jq -n \
                 --arg ping "$ROLE_PING" \
-                --arg role "$DISCORD_ROLE_ID" \
+                --argjson roles "$ROLE_IDS_JSON" \
                 --arg image "$BEAR_IMAGE_URL" \
                 '{
                   username: "KS Mission Control",
@@ -413,13 +423,7 @@ jobs:
 
                   allowed_mentions: {
                     parse: [],
-                    roles:
-                      (
-                        if $role == ""
-                        then []
-                        else [$role]
-                        end
-                      )
+                    roles: $roles
                   },
 
                   embeds: [
@@ -438,7 +442,7 @@ jobs:
                       fields: [
                         {
                           name: "🕒 START TIME",
-                          value: "**15:00 UTC**",
+                          value: "**19:00 UTC**",
                           inline: true
                         },
                         {
@@ -489,7 +493,7 @@ jobs:
 
             PAYLOAD=$(jq -n \
               --arg ping "$ROLE_PING" \
-              --arg role "$DISCORD_ROLE_ID" \
+              --argjson roles "$ROLE_IDS_JSON" \
               '{
                 username: "KS Mission Control",
 
@@ -497,13 +501,7 @@ jobs:
 
                 allowed_mentions: {
                   parse: [],
-                  roles:
-                    (
-                      if $role == ""
-                      then []
-                      else [$role]
-                      end
-                    )
+                  roles: $roles
                 },
 
                 embeds: [
@@ -570,7 +568,7 @@ jobs:
 
             PAYLOAD=$(jq -n \
               --arg ping "$ROLE_PING" \
-              --arg role "$DISCORD_ROLE_ID" \
+              --argjson roles "$ROLE_IDS_JSON" \
               '{
                 username: "KS Mission Control",
 
@@ -578,13 +576,7 @@ jobs:
 
                 allowed_mentions: {
                   parse: [],
-                  roles:
-                    (
-                      if $role == ""
-                      then []
-                      else [$role]
-                      end
-                    )
+                  roles: $roles
                 },
 
                 embeds: [
