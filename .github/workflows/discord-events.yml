@@ -30,7 +30,7 @@ jobs:
 
       # MUST be an actual Bear day.
       BEAR1_START_DATE: "2026-08-22"
-      BEAR2_START_DATE: "2026-08-23"
+      BEAR2_START_DATE: "2026-08-22"
 
       BEAR_IMAGE_URL: "https://cdn.discordapp.com/emojis/1375520846407270561.png?size=256&quality=lossless"
 
