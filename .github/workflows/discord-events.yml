@@ -1,630 +1,290 @@
-name: POT Discord Event Reminders
+name: POT Bear Reminders
 
 on:
-  schedule:
-    # =====================================================
-    # 🐻 BEAR HUNT 1
-    # Event: 15:00 UTC
-    # Reminder: 14:45 UTC
-    # Script checks whether today is a Bear day
-    # =====================================================
-    - cron: "45 14 * * *"
+  # Called externally by cron-job.org
+  repository_dispatch:
+    types:
+      - bear1
+      - bear2
 
-    # =====================================================
-    # 🐻 BEAR HUNT 2
-    # Event: 19:00 UTC
-    # Reminder: 18:45 UTC
-    # Script checks whether today is a Bear day
-    # =====================================================
-    - cron: "45 18 * * *"
-
-    # =====================================================
-    # DAILY RESET / ARENA REMINDER
-    # Every day at 23:50 UTC
-    # Daily reset is at 00:00 UTC
-    # =====================================================
-    - cron: "10 8 * * *"
-
-    # =====================================================
-    # WEEKLY RESET REMINDER
-    # Every Sunday at 23:45 UTC
-    # Weekly reset is at 00:00 UTC Monday
-    # =====================================================
-    - cron: "45 23 * * 0"
-
-  # =======================================================
-  # MANUAL TEST BUTTON
-  # GitHub -> Actions -> KS Discord Event Reminders
-  # -> Run workflow
-  # =======================================================
+  # Manual testing from GitHub Actions
   workflow_dispatch:
     inputs:
       event:
-        description: "Choose event to test"
+        description: "Bear event to test"
         required: true
         type: choice
         options:
           - bear1
           - bear2
-          - event3
-          - event4
-
 
 jobs:
-  discord-reminder:
+  bear-reminder:
     runs-on: ubuntu-latest
 
     env:
-      # ===================================================
-      # DISCORD WEBHOOK
-      # Create GitHub secret:
-      # DISCORD_WEBHOOK_URL
-      # ===================================================
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-      ALLIANCE: ${{ secrets.ALLIANCE }}
-      # ===================================================
-      # BEAR CYCLE START DATES
-      #
-      # These MUST be dates when the Bear actually happens.
-      #
-      # Example with 2026-08-22:
-      #
-      # Aug 22 = Bear
-      # Aug 23 = No Bear
-      # Aug 24 = Bear
-      # Aug 25 = No Bear
-      # Aug 26 = Bear
-      #
-      # If Bear 1 and Bear 2 happen on the same days,
-      # keep both dates the same.
-      # ===================================================
+
+      ROLE_ID_1: ${{ secrets.ROLE_ID_1 }}
+      ROLE_ID_2: ${{ secrets.ROLE_ID_2 }}
+
+      # MUST be an actual Bear day.
       BEAR1_START_DATE: "2026-08-22"
       BEAR2_START_DATE: "2026-08-22"
 
-      # ===================================================
-      # BEAR IMAGE
-      # ===================================================
       BEAR_IMAGE_URL: "https://cdn.discordapp.com/emojis/1375520846407270561.png?size=256&quality=lossless"
 
-      # ===================================================
-      # DISCORD ROLE PINGS (2 ROLES)
-      #
-      # Put the two Discord role IDs below.
-      # Leave either one blank if you do not want that role pinged.
-      #
-      # Example:
-      # DISCORD_ROLE_ID_1: "123456789012345678"
-      # DISCORD_ROLE_ID_2: "987654321098765432"
-      # ===================================================
-      DISCORD_ROLE_ID_1: ${{ secrets.ROLE_ID_1 }}
-      DISCORD_ROLE_ID_2: ${{ secrets.ROLE_ID_2 }}
-
     steps:
-
-      - name: Send Discord Event Reminder
+      - name: Check Bear cycle and send Discord reminder
         shell: bash
 
         run: |
-          set -u
+          set -euo pipefail
 
           echo "=========================================="
-          echo "KS Discord Event Reminder"
-          echo "=========================================="
+          echo "POT Bear Reminder"
+          echo "UTC date: $(date -u)"
           echo "Trigger: ${{ github.event_name }}"
-          echo "UTC Time: $(date -u)"
           echo "=========================================="
 
-          # =================================================
-          # GET THE SCHEDULE THAT TRIGGERED THIS WORKFLOW
-          # =================================================
+          # ==========================================
+          # DETERMINE EVENT
+          # ==========================================
 
-          SCHEDULE="${{ github.event.schedule }}"
-          MANUAL_EVENT="${{ inputs.event }}"
-          IS_MANUAL="false"
-
-
-          # =================================================
-          # MANUAL TEST MODE
-          # =================================================
+          EVENT="${{ github.event.action }}"
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-
-            IS_MANUAL="true"
-
-            echo "Manual test selected: $MANUAL_EVENT"
-
-            case "$MANUAL_EVENT" in
-
-              bear1)
-                SCHEDULE="45 14 * * *"
-                ;;
-
-              bear2)
-                SCHEDULE="45 18 * * *"
-                ;;
-
-              event3)
-                SCHEDULE="50 23 * * *"
-                ;;
-
-              event4)
-                SCHEDULE="45 23 * * 0"
-                ;;
-
-              *)
-                echo "ERROR: Unknown manual event."
-                exit 1
-                ;;
-
-            esac
-
+            EVENT="${{ inputs.event }}"
           fi
 
-
-          echo "Selected schedule: $SCHEDULE"
-
-
-          # =================================================
-          # CHECK DISCORD WEBHOOK
-          # =================================================
-
-          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
-
-            echo "ERROR: DISCORD_WEBHOOK_URL is missing."
-            echo "Create it in:"
-            echo "GitHub -> Settings -> Secrets and variables -> Actions"
-
-            exit 1
-
-          fi
+          echo "Event: $EVENT"
 
 
-          # =================================================
-          # EVERY 2 DAYS CHECK
-          #
-          # FIXED VERSION
-          #
-          # This calculates the actual number of days since
-          # the Bear cycle start date.
-          # =================================================
+          # ==========================================
+          # EVENT CONFIGURATION
+          # ==========================================
+
+          case "$EVENT" in
+
+            bear1)
+              START_DATE="$BEAR1_START_DATE"
+              BEAR_NAME="Bear Hunt 1"
+              START_TIME="15:00 UTC"
+              ;;
+
+            bear2)
+              START_DATE="$BEAR2_START_DATE"
+              BEAR_NAME="Bear Hunt 2"
+              START_TIME="19:00 UTC"
+              ;;
+
+            *)
+              echo "ERROR: Unknown event: $EVENT"
+              exit 1
+              ;;
+
+          esac
+
+
+          # ==========================================
+          # TRUE EVERY 2 DAYS CHECK
+          # ==========================================
 
           every_two_days() {
 
             START_DATE="$1"
 
-
-            # Manual tests should always send
-            if [ "$IS_MANUAL" = "true" ]; then
-
-              echo "Manual test: bypassing Bear day check."
-
-              return 0
-
-            fi
-
-
             START_SECONDS=$(date -u -d "$START_DATE 00:00:00" +%s)
 
             TODAY_DATE=$(date -u +%F)
-
             TODAY_SECONDS=$(date -u -d "$TODAY_DATE 00:00:00" +%s)
 
-
-            # IMPORTANT:
-            # Correct Bash arithmetic syntax is $(( ... ))
             DAYS_DIFFERENCE=$(( (TODAY_SECONDS - START_SECONDS) / 86400 ))
 
+            echo "------------------------------------------"
+            echo "Bear start date : $START_DATE"
+            echo "Today           : $TODAY_DATE"
+            echo "Days difference : $DAYS_DIFFERENCE"
+            echo "------------------------------------------"
 
-            echo "Bear cycle start: $START_DATE"
-            echo "Today: $TODAY_DATE"
-            echo "Days difference: $DAYS_DIFFERENCE"
-
-
-            # Don't run before the cycle starts
+            # Do not run before cycle begins
             if [ "$DAYS_DIFFERENCE" -lt 0 ]; then
-
-              echo "Bear cycle has not started yet."
-
               return 1
-
             fi
-
 
             # 0, 2, 4, 6, 8...
             if [ $((DAYS_DIFFERENCE % 2)) -eq 0 ]; then
-
-              echo "Today IS a Bear event day."
-
               return 0
-
-            else
-
-              echo "Today is NOT a Bear event day."
-
-              return 1
-
             fi
+
+            return 1
           }
 
 
-          # =================================================
-          # SEND JSON PAYLOAD TO DISCORD
-          # =================================================
+          # ==========================================
+          # VERIFY TODAY IS A BEAR DAY
+          # ==========================================
 
-          send_discord() {
+          if ! every_two_days "$START_DATE"; then
 
-            PAYLOAD="$1"
+            echo "=========================================="
+            echo "NOT A BEAR DAY"
+            echo "Discord message will NOT be sent."
+            echo "=========================================="
 
-            echo "Sending Discord message..."
+            exit 0
 
-
-            HTTP_CODE=$(curl \
-              --silent \
-              --show-error \
-              --output /tmp/discord-response.txt \
-              --write-out "%{http_code}" \
-              -H "Content-Type: application/json" \
-              --data-binary "$PAYLOAD" \
-              "$DISCORD_WEBHOOK_URL")
+          fi
 
 
-            echo "Discord HTTP status: $HTTP_CODE"
+          echo "=========================================="
+          echo "TODAY IS A BEAR DAY"
+          echo "Sending $BEAR_NAME reminder"
+          echo "=========================================="
 
 
-            if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+          # ==========================================
+          # CHECK DISCORD WEBHOOK
+          # ==========================================
 
-              echo "ERROR: Discord rejected the webhook."
-
-              cat /tmp/discord-response.txt
-
-              exit 1
-
-            fi
-
-
-            echo "Discord message sent successfully."
-          }
-
-
-          # =================================================
-          # BUILD TWO ROLE PINGS
-          #
-          # GitHub secrets may contain either:
-          #   123456789012345678
-          # or:
-          #   <@&123456789012345678>
-          #
-          # Normalize both formats to raw numeric role IDs.
-          # =================================================
-
-          DISCORD_ROLE_ID_1=$(printf '%s' "$DISCORD_ROLE_ID_1" | tr -d '[:space:]')
-          DISCORD_ROLE_ID_2=$(printf '%s' "$DISCORD_ROLE_ID_2" | tr -d '[:space:]')
-
-          DISCORD_ROLE_ID_1=$(printf '%s' "$DISCORD_ROLE_ID_1" | sed -E 's/^<@&([0-9]+)>$/\1/')
-          DISCORD_ROLE_ID_2=$(printf '%s' "$DISCORD_ROLE_ID_2" | sed -E 's/^<@&([0-9]+)>$/\1/')
-
-          if [ -n "$DISCORD_ROLE_ID_1" ] && [[ ! "$DISCORD_ROLE_ID_1" =~ ^[0-9]+$ ]]; then
-            echo "ERROR: ROLE_ID_1 must contain only a Discord role ID number."
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "ERROR: DISCORD_WEBHOOK_URL secret missing."
             exit 1
           fi
 
-          if [ -n "$DISCORD_ROLE_ID_2" ] && [[ ! "$DISCORD_ROLE_ID_2" =~ ^[0-9]+$ ]]; then
-            echo "ERROR: ROLE_ID_2 must contain only a Discord role ID number."
+
+          # ==========================================
+          # CLEAN ROLE IDS
+          # ==========================================
+
+          ROLE_ID_1=$(printf '%s' "$ROLE_ID_1" | tr -d '[:space:]')
+          ROLE_ID_2=$(printf '%s' "$ROLE_ID_2" | tr -d '[:space:]')
+
+          ROLE_ID_1=$(printf '%s' "$ROLE_ID_1" | sed -E 's/^<@&([0-9]+)>$/\1/')
+          ROLE_ID_2=$(printf '%s' "$ROLE_ID_2" | sed -E 's/^<@&([0-9]+)>$/\1/')
+
+
+          # ==========================================
+          # VALIDATE ROLE IDS
+          # ==========================================
+
+          if [ -n "$ROLE_ID_1" ] && [[ ! "$ROLE_ID_1" =~ ^[0-9]+$ ]]; then
+            echo "ERROR: ROLE_ID_1 is invalid."
             exit 1
           fi
+
+          if [ -n "$ROLE_ID_2" ] && [[ ! "$ROLE_ID_2" =~ ^[0-9]+$ ]]; then
+            echo "ERROR: ROLE_ID_2 is invalid."
+            exit 1
+          fi
+
+
+          # ==========================================
+          # BUILD ROLE PING
+          # ==========================================
 
           ROLE_PING=""
 
-          if [ -n "$DISCORD_ROLE_ID_1" ]; then
-            ROLE_PING="<@&$DISCORD_ROLE_ID_1>"
+          if [ -n "$ROLE_ID_1" ]; then
+            ROLE_PING="<@&$ROLE_ID_1>"
           fi
 
-          if [ -n "$DISCORD_ROLE_ID_2" ]; then
+          if [ -n "$ROLE_ID_2" ]; then
+
             if [ -n "$ROLE_PING" ]; then
-              ROLE_PING="$ROLE_PING <@&$DISCORD_ROLE_ID_2>"
+              ROLE_PING="$ROLE_PING <@&$ROLE_ID_2>"
             else
-              ROLE_PING="<@&$DISCORD_ROLE_ID_2>"
+              ROLE_PING="<@&$ROLE_ID_2>"
             fi
+
           fi
 
-          echo "Configured role mentions: $([ -n "$DISCORD_ROLE_ID_1" ] && echo -n 1 || echo -n 0)$([ -n "$DISCORD_ROLE_ID_2" ] && echo -n '+1' || true)"
+
+          # Exact roles Discord is allowed to ping
+          ALLOWED_ROLES=$(jq -cn \
+            --arg r1 "$ROLE_ID_1" \
+            --arg r2 "$ROLE_ID_2" \
+            '[$r1, $r2] | map(select(length > 0))')
 
 
-          # =================================================
-          # 🐻 BEAR HUNT 1
-          #
-          # Starts: 15:00 UTC
-          # Alert:  14:45 UTC
-          # =================================================
+          # ==========================================
+          # CREATE DISCORD PAYLOAD
+          # ==========================================
 
-          if [ "$SCHEDULE" = "45 14 * * *" ]; then
+          PAYLOAD=$(jq -n \
+            --arg ping "$ROLE_PING" \
+            --arg bear "$BEAR_NAME" \
+            --arg start "$START_TIME" \
+            --arg image "$BEAR_IMAGE_URL" \
+            --argjson roles "$ALLOWED_ROLES" \
+            '{
+              username: "POT",
 
-            echo "------------------------------------------"
-            echo "Processing Bear Hunt 1"
-            echo "------------------------------------------"
+              content: $ping,
 
+              allowed_mentions: {
+                roles: $roles
+              },
 
-            if every_two_days "$BEAR1_START_DATE"; then
+              embeds: [
+                {
+                  title: "🚨 MISSION ALERT: POT BEAR INBOUND 🚨",
 
+                  description:
+                    ("**Attention, Commanders!**\n\n🐻 **" + $bear + " — BEAR TRAP POT** will commence in **15 minutes**."),
 
-              PAYLOAD=$(jq -n \
-                --arg ping "$ROLE_PING" \
-                 --arg image "$BEAR_IMAGE_URL" \
-                '{
-                  username: "POT",
+                  color: 15158332,
 
-                  content: $ping,
-
-                  allowed_mentions: {
-                    parse: ["roles"]
+                  image: {
+                    url: $image
                   },
 
-                  embeds: [
+                  fields: [
                     {
-                      title: "🚨 MISSION ALERT: POT BEAR INBOUND 🚨",
-
-                      description:
-                        "**Attention, Commanders!**\n\n🐻 **Bear Hunt 1 — BEAR TRAP POT** will commence in **15 minutes**.",
-
-                      color: 15158332,
-
-                      image: {
-                        url: $image
-                      },
-
-                      fields: [
-                        {
-                          name: "🕒 START TIME",
-                          value: "**15:00 UTC**",
-                          inline: true
-                        },
-                        {
-                          name: "⏳ COUNTDOWN",
-                          value: "**15 Minutes**",
-                          inline: true
-                        },
-                        {
-                          name: "✅ CHECKLIST",
-                          value: "• Get online\n• Check your formations\n• Activate required buffs\n• Verify your heroes",
-                          inline: false
-                        }
-                      ],
-                      timestamp: (now | todate)
+                      name: "🕒 START TIME",
+                      value: ("**" + $start + "**"),
+                      inline: true
+                    },
+                    {
+                      name: "⏳ COUNTDOWN",
+                      value: "**15 Minutes**",
+                      inline: true
+                    },
+                    {
+                      name: "✅ CHECKLIST",
+                      value: "• Get online\n• Check your formations\n• Activate required buffs\n• Verify your heroes",
+                      inline: false
                     }
                   ]
-                }')
+                }
+              ]
+            }')
 
 
-              send_discord "$PAYLOAD"
+          # ==========================================
+          # SEND TO DISCORD
+          # ==========================================
+
+          HTTP_CODE=$(curl \
+            --silent \
+            --show-error \
+            --output /tmp/discord-response.txt \
+            --write-out "%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            --data-binary "$PAYLOAD" \
+            "$DISCORD_WEBHOOK_URL")
 
 
-            else
+          echo "Discord HTTP status: $HTTP_CODE"
 
-              echo "Bear Hunt 1 does not run today."
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
 
-            fi
+            echo "ERROR: Discord webhook failed."
+            cat /tmp/discord-response.txt
 
-
-            exit 0
-
-          fi
-
-
-          # =================================================
-          # 🐻 BEAR HUNT 2
-          #
-          # Starts: 19:00 UTC
-          # Alert:  18:45 UTC
-          # =================================================
-
-          if [ "$SCHEDULE" = "45 18 * * *" ]; then
-
-            echo "------------------------------------------"
-            echo "Processing Bear Hunt 2"
-            echo "------------------------------------------"
-
-
-            if every_two_days "$BEAR2_START_DATE"; then
-
-
-              PAYLOAD=$(jq -n \
-                --arg ping "$ROLE_PING" \
-                 --arg image "$BEAR_IMAGE_URL" \
-                '{
-                  username: "POT",
-
-                  content: $ping,
-
-                  allowed_mentions: {
-                    parse: ["roles"]
-                  },
-
-                  embeds: [
-                    {
-                      title: "🚨 MISSION ALERT: POT BEAR INBOUND 🚨",
-
-                      description:
-                        "**Attention, Commanders!**\n\n🐻 **Bear Hunt 2 — BEAR TRAP POT** will commence in **15 minutes**.",
-
-                      color: 15158332,
-
-                      image: {
-                        url: $image
-                      },
-
-                      fields: [
-                        {
-                          name: "🕒 START TIME",
-                          value: "**19:00 UTC**",
-                          inline: true
-                        },
-                        {
-                          name: "⏳ COUNTDOWN",
-                          value: "**15 Minutes**",
-                          inline: true
-                        },
-                        {
-                          name: "✅ CHECKLIST",
-                          value: "• Get online\n• Check your formations\n• Activate required buffs\n• Verify your heroes",
-                          inline: false
-                        }
-                      ],
-
-                      timestamp: (now | todate)
-                    }
-                  ]
-                }')
-
-
-              send_discord "$PAYLOAD"
-
-
-            else
-
-              echo "Bear Hunt 2 does not run today."
-
-            fi
-
-
-            exit 0
+            exit 1
 
           fi
 
-
-          # =================================================
-          # 🏟️ DAILY RESET / ARENA REMINDER
-          #
-          # Reminder: 23:50 UTC
-          # Reset:    00:00 UTC daily
-          # =================================================
-
-          if [ "$SCHEDULE" = "50 23 * * *" ]; then
-
-            echo "------------------------------------------"
-            echo "Processing Daily Reset / Arena Reminder"
-            echo "------------------------------------------"
-
-
-            PAYLOAD=$(jq -n \
-              --arg ping "$ROLE_PING" \
-              '{
-                username: "POT",
-
-                content: $ping,
-
-                allowed_mentions: {
-                    parse: ["roles"]
-                  },
-
-                embeds: [
-                  {
-                    title: "🏟️ ARENA RESET REMINDER",
-
-                    description:
-                      "**Attention, Commanders!**\n\nThe **Daily Reset** is in **10 minutes**. Use any remaining **Arena attempts** before reset!",
-
-                    color: 3447003,
-
-                    fields: [
-                      {
-                        name: "🕒 REMINDER TIME",
-                        value: "**23:50 UTC**",
-                        inline: true
-                      },
-                      {
-                        name: "🔄 RESET TIME",
-                        value: "**00:00 UTC • Every Day**",
-                        inline: true
-                      },
-                      {
-                        name: "⏳ COUNTDOWN",
-                        value: "**10 Minutes Until Daily Reset**",
-                        inline: false
-                      }
-                    ],
-
-                    timestamp: (now | todate)
-                  }
-                ]
-              }')
-
-
-            send_discord "$PAYLOAD"
-
-            exit 0
-
-          fi
-
-
-          # =================================================
-          # 🔄 WEEKLY RESET REMINDER
-          #
-          # Reminder: 23:45 UTC Sunday
-          # Reset:    00:00 UTC Monday
-          # =================================================
-
-          if [ "$SCHEDULE" = "45 23 * * 0" ]; then
-
-            echo "------------------------------------------"
-            echo "Processing Weekly Reset Reminder"
-            echo "------------------------------------------"
-
-
-            PAYLOAD=$(jq -n \
-              --arg ping "$ROLE_PING" \
-              '{
-                username: "POT",
-
-                content: $ping,
-
-                allowed_mentions: {
-                    parse: ["roles"]
-                  },
-
-                embeds: [
-                  {
-                    title: "🚨 WEEKLY RESET INBOUND",
-
-                    description:
-                      "**Attention, Commanders!**\n\nThe **Weekly Reset** is in **15 minutes**. Finish your weekly tasks and claim any remaining rewards before reset.",
-
-                    color: 10181046,
-
-                    fields: [
-                      {
-                        name: "🕒 REMINDER TIME",
-                        value: "**23:45 UTC**",
-                        inline: true
-                      },
-                      {
-                        name: "🔄 RESET TIME",
-                        value: "**00:00 UTC Monday • Weekly**",
-                        inline: true
-                      },
-                      {
-                        name: "⏳ COUNTDOWN",
-                        value: "**15 Minutes Until Weekly Reset**",
-                        inline: false
-                      }
-                    ],
-                    timestamp: (now | todate)
-                  }
-                ]
-              }')
-
-
-            send_discord "$PAYLOAD"
-
-            exit 0
-
-          fi
-
-
-          # =================================================
-          # NO MATCH
-          # =================================================
-
-          echo "ERROR: No matching event schedule."
-          echo "Schedule was: $SCHEDULE"
-
-          exit 1
+          echo "Discord reminder sent successfully."
