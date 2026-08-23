@@ -216,29 +216,28 @@ jobs:
             --arg bear "$BEAR_NAME" \
             --arg start "$START_TIME" \
             --arg image "$BEAR_IMAGE_URL" \
-            --argjson roles "$ALLOWED_ROLES" \
             '{
               username: "POT",
-
+          
               content: $ping,
-
+          
               allowed_mentions: {
-                roles: $roles
+                parse: ["roles"]
               },
-
+          
               embeds: [
                 {
                   title: "🚨 MISSION ALERT: POT BEAR INBOUND 🚨",
-
+          
                   description:
                     ("**Attention, Commanders!**\n\n🐻 **" + $bear + " — BEAR TRAP POT** will commence in **15 minutes**."),
-
+          
                   color: 15158332,
-
+          
                   image: {
                     url: $image
                   },
-
+          
                   fields: [
                     {
                       name: "🕒 START TIME",
