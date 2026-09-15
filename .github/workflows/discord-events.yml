@@ -18,6 +18,16 @@ on:
           - bear1
           - bear2
 
+
+# ==========================================
+# PREVENT MULTIPLE DISCORD SENDS AT ONCE
+# ==========================================
+
+concurrency:
+  group: pot-bear-discord-reminder
+  cancel-in-progress: false
+
+
 jobs:
   bear-reminder:
     runs-on: ubuntu-latest
@@ -46,6 +56,7 @@ jobs:
           echo "UTC date: $(date -u)"
           echo "Trigger: ${{ github.event_name }}"
           echo "=========================================="
+
 
           # ==========================================
           # DETERMINE EVENT
@@ -112,6 +123,7 @@ jobs:
               return 1
             fi
 
+            # Valid days:
             # 0, 2, 4, 6, 8...
             if [ $((DAYS_DIFFERENCE % 2)) -eq 0 ]; then
               return 0
@@ -147,7 +159,7 @@ jobs:
           # CHECK DISCORD WEBHOOK
           # ==========================================
 
-          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
             echo "ERROR: DISCORD_WEBHOOK_URL secret missing."
             exit 1
           fi
@@ -157,8 +169,8 @@ jobs:
           # CLEAN ROLE IDS
           # ==========================================
 
-          ROLE_ID_1=$(printf '%s' "$ROLE_ID_1" | tr -d '[:space:]')
-          ROLE_ID_2=$(printf '%s' "$ROLE_ID_2" | tr -d '[:space:]')
+          ROLE_ID_1=$(printf '%s' "${ROLE_ID_1:-}" | tr -d '[:space:]')
+          ROLE_ID_2=$(printf '%s' "${ROLE_ID_2:-}" | tr -d '[:space:]')
 
           ROLE_ID_1=$(printf '%s' "$ROLE_ID_1" | sed -E 's/^<@&([0-9]+)>$/\1/')
           ROLE_ID_2=$(printf '%s' "$ROLE_ID_2" | sed -E 's/^<@&([0-9]+)>$/\1/')
@@ -200,11 +212,17 @@ jobs:
           fi
 
 
-          # Exact roles Discord is allowed to ping
+          # ==========================================
+          # BUILD EXACT ALLOWED ROLE LIST
+          # ==========================================
+
           ALLOWED_ROLES=$(jq -cn \
             --arg r1 "$ROLE_ID_1" \
             --arg r2 "$ROLE_ID_2" \
             '[$r1, $r2] | map(select(length > 0))')
+
+
+          echo "Role mentions configured."
 
 
           # ==========================================
@@ -216,28 +234,34 @@ jobs:
             --arg bear "$BEAR_NAME" \
             --arg start "$START_TIME" \
             --arg image "$BEAR_IMAGE_URL" \
+            --argjson roles "$ALLOWED_ROLES" \
             '{
               username: "POT",
-          
+
               content: $ping,
-          
+
               allowed_mentions: {
-                parse: ["roles"]
+                parse: [],
+                roles: $roles
               },
-          
+
               embeds: [
                 {
                   title: "🚨 MISSION ALERT: POT BEAR INBOUND 🚨",
-          
+
                   description:
-                    ("**Attention, Commanders!**\n\n🐻 **" + $bear + " — BEAR TRAP POT** will commence in **15 minutes**."),
-          
+                    (
+                      "**Attention, Commanders!**\n\n🐻 **"
+                      + $bear
+                      + " — BEAR TRAP POT** will commence in **15 minutes**."
+                    ),
+
                   color: 15158332,
-          
+
                   image: {
                     url: $image
                   },
-          
+
                   fields: [
                     {
                       name: "🕒 START TIME",
@@ -251,7 +275,8 @@ jobs:
                     },
                     {
                       name: "✅ CHECKLIST",
-                      value: "• Get online\n• Check your formations\n• Activate required buffs\n• Verify your heroes",
+                      value:
+                        "• Get online\n• Check your formations\n• Activate required buffs\n• Verify your heroes",
                       inline: false
                     }
                   ]
@@ -261,29 +286,235 @@ jobs:
 
 
           # ==========================================
-          # SEND TO DISCORD
+          # SEND TO DISCORD WITH RETRIES
           # ==========================================
 
-          HTTP_CODE=$(curl \
-            --silent \
-            --show-error \
-            --output /tmp/discord-response.txt \
-            --write-out "%{http_code}" \
-            -X POST \
-            -H "Content-Type: application/json" \
-            --data-binary "$PAYLOAD" \
-            "$DISCORD_WEBHOOK_URL")
+          MAX_ATTEMPTS=5
+          ATTEMPT=1
+
+          while [ "$ATTEMPT" -le "$MAX_ATTEMPTS" ]; do
+
+            echo "------------------------------------------"
+            echo "Discord webhook attempt $ATTEMPT/$MAX_ATTEMPTS"
+            echo "------------------------------------------"
+
+            CURL_EXIT=0
+
+            HTTP_CODE=$(curl \
+              --silent \
+              --show-error \
+              --connect-timeout 15 \
+              --max-time 30 \
+              --output /tmp/discord-response.txt \
+              --write-out "%{http_code}" \
+              --request POST \
+              --header "Content-Type: application/json" \
+              --header "User-Agent: POT-Bear-Reminder/1.0" \
+              --data-binary "$PAYLOAD" \
+              "$DISCORD_WEBHOOK_URL") || CURL_EXIT=$?
 
 
-          echo "Discord HTTP status: $HTTP_CODE"
+            # ==========================================
+            # CURL / NETWORK FAILURE
+            # ==========================================
 
-          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            if [ "$CURL_EXIT" -ne 0 ]; then
 
+              echo "curl failed with exit code: $CURL_EXIT"
+
+              if [ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
+
+                echo "=========================================="
+                echo "ERROR: Discord connection failed after"
+                echo "$MAX_ATTEMPTS attempts."
+                echo "=========================================="
+
+                exit 1
+
+              fi
+
+              WAIT_TIME=$((ATTEMPT * 3))
+
+              echo "Retrying network request in ${WAIT_TIME}s..."
+
+              sleep "$WAIT_TIME"
+
+              ATTEMPT=$((ATTEMPT + 1))
+              continue
+
+            fi
+
+
+            echo "Discord HTTP status: $HTTP_CODE"
+
+
+            # ==========================================
+            # SUCCESS
+            # ==========================================
+
+            if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+
+              echo "=========================================="
+              echo "Discord reminder sent successfully."
+              echo "=========================================="
+
+              exit 0
+
+            fi
+
+
+            # ==========================================
+            # RATE LIMITED
+            # ==========================================
+
+            if [ "$HTTP_CODE" = "429" ]; then
+
+              echo "=========================================="
+              echo "Discord rate limit encountered."
+              echo "=========================================="
+
+              echo "Discord response:"
+
+              if [ -s /tmp/discord-response.txt ]; then
+                cat /tmp/discord-response.txt
+              else
+                echo "(empty response)"
+              fi
+
+              echo
+
+
+              # ------------------------------------------
+              # READ retry_after FROM DISCORD
+              # ------------------------------------------
+
+              RETRY_AFTER=$(jq -r '
+                if (.retry_after | type) == "number" then
+                  .retry_after
+                else
+                  3
+                end
+              ' /tmp/discord-response.txt 2>/dev/null || echo "3")
+
+
+              # ------------------------------------------
+              # VALIDATE retry_after
+              # ------------------------------------------
+
+              if ! [[ "$RETRY_AFTER" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+                RETRY_AFTER="3"
+              fi
+
+
+              # ------------------------------------------
+              # ADD SMALL SAFETY BUFFER
+              # ------------------------------------------
+
+              WAIT_TIME=$(awk \
+                -v retry="$RETRY_AFTER" \
+                'BEGIN {
+                  printf "%.3f", retry + 0.5
+                }')
+
+
+              echo "Discord requested retry after: ${RETRY_AFTER}s"
+              echo "Waiting ${WAIT_TIME}s before retrying..."
+
+
+              if [ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
+
+                echo "=========================================="
+                echo "ERROR: Discord remained rate limited after"
+                echo "$MAX_ATTEMPTS attempts."
+                echo "=========================================="
+
+                exit 1
+
+              fi
+
+
+              sleep "$WAIT_TIME"
+
+              ATTEMPT=$((ATTEMPT + 1))
+              continue
+
+            fi
+
+
+            # ==========================================
+            # TEMPORARY DISCORD SERVER ERRORS
+            # ==========================================
+
+            if [ "$HTTP_CODE" = "500" ] || \
+               [ "$HTTP_CODE" = "502" ] || \
+               [ "$HTTP_CODE" = "503" ] || \
+               [ "$HTTP_CODE" = "504" ]; then
+
+              echo "Temporary Discord server error."
+
+              if [ -s /tmp/discord-response.txt ]; then
+                cat /tmp/discord-response.txt
+                echo
+              fi
+
+
+              if [ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
+
+                echo "=========================================="
+                echo "ERROR: Discord server error persisted after"
+                echo "$MAX_ATTEMPTS attempts."
+                echo "=========================================="
+
+                exit 1
+
+              fi
+
+
+              # 3s, 6s, 9s, 12s...
+              WAIT_TIME=$((ATTEMPT * 3))
+
+              echo "Retrying in ${WAIT_TIME}s..."
+
+              sleep "$WAIT_TIME"
+
+              ATTEMPT=$((ATTEMPT + 1))
+              continue
+
+            fi
+
+
+            # ==========================================
+            # NON-RETRYABLE DISCORD ERROR
+            # ==========================================
+
+            echo "=========================================="
             echo "ERROR: Discord webhook failed."
-            cat /tmp/discord-response.txt
+            echo "HTTP status: $HTTP_CODE"
+            echo "------------------------------------------"
+            echo "Discord response:"
+            echo "------------------------------------------"
+
+            if [ -s /tmp/discord-response.txt ]; then
+              cat /tmp/discord-response.txt
+            else
+              echo "(empty response)"
+            fi
+
+            echo
+            echo "=========================================="
 
             exit 1
 
-          fi
+          done
 
-          echo "Discord reminder sent successfully."
+
+          # ==========================================
+          # SAFETY FALLBACK
+          # ==========================================
+
+          echo "=========================================="
+          echo "ERROR: Discord webhook failed after"
+          echo "$MAX_ATTEMPTS attempts."
+          echo "=========================================="
+
+          exit 1
